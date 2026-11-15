@@ -1,0 +1,6 @@
+{
+  "name": "CineDeck",
+  "description": "Personal movie and web series discovery, smart recommendations, and dual watchlist tracker powered by TMDB.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
