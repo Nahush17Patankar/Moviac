@@ -4,6 +4,7 @@ import {
   Bookmark,
   Clock,
   Film,
+  Play,
   Search,
   SlidersHorizontal,
   Sparkles,
@@ -42,7 +43,9 @@ interface SearchResultsPanelProps {
   onClose: () => void;
   onSelectItem: (item: TmdbMediaItem, layoutKey: string) => void;
   isInWatchlist: (id: number, type: MediaType) => boolean;
+  isWatching: (id: number, type: MediaType) => boolean;
   onToggleWatchlist: (item: TmdbMediaItem) => void;
+  onToggleWatching: (item: TmdbMediaItem) => void;
   onHoverBackdrop?: (path: string | null) => void;
 }
 
@@ -66,7 +69,9 @@ export const SearchResultsPanel: React.FC<SearchResultsPanelProps> = ({
   onClose,
   onSelectItem,
   isInWatchlist,
+  isWatching,
   onToggleWatchlist,
+  onToggleWatching,
   onHoverBackdrop,
 }) => {
   const [tab, setTab] = useState<ContentFilter>('all');
@@ -120,6 +125,7 @@ export const SearchResultsPanel: React.FC<SearchResultsPanelProps> = ({
   const renderResultCard = (item: TmdbMediaItem, prefix: string) => {
     const posterUrl = getPosterUrl(item.poster_path, 'w500');
     const inWl = isInWatchlist(item.id, item.media_type);
+    const watching = isWatching(item.id, item.media_type);
     const layoutKey = `${prefix}-${item.media_type}-${item.id}`;
 
     return (
@@ -189,7 +195,20 @@ export const SearchResultsPanel: React.FC<SearchResultsPanelProps> = ({
             )}
           </div>
 
-          <div className="mt-2.5 flex items-center gap-2">
+          <div className="mt-2.5 flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => onToggleWatching(item)}
+              className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-semibold transition-all ${
+                watching
+                  ? 'border border-cyan-300/60 bg-cyan-500/25 text-cyan-100'
+                  : 'border border-white/15 bg-white/10 text-slate-200 hover:bg-white/20 hover:text-white'
+              }`}
+            >
+              <Play className={`h-3 w-3 ${watching ? 'fill-current' : ''}`} />
+              {watching ? 'Watching' : '+ Watching'}
+            </button>
+
             <button
               type="button"
               onClick={() => onToggleWatchlist(item)}

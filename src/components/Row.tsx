@@ -9,8 +9,10 @@ interface RowProps {
   items: TmdbMediaItem[];
   loading?: boolean;
   isInWatchlist: (id: number, type: MediaType) => boolean;
+  isWatching?: (id: number, type: MediaType) => boolean;
   isWatched: (id: number, type: MediaType) => boolean;
   onToggleWatchlist: (item: TmdbMediaItem) => void;
+  onToggleWatching?: (item: TmdbMediaItem) => void;
   onSelectItem: (item: TmdbMediaItem, layoutKey: string) => void;
   onHoverBackdrop?: (path: string | null) => void;
   rowId: string;
@@ -22,8 +24,10 @@ export const Row: React.FC<RowProps> = ({
   items,
   loading = false,
   isInWatchlist,
+  isWatching,
   isWatched,
   onToggleWatchlist,
+  onToggleWatching,
   onSelectItem,
   onHoverBackdrop,
   rowId,
@@ -93,8 +97,10 @@ export const Row: React.FC<RowProps> = ({
                 compact
                 layoutPrefix={rowId}
                 inWatchlist={isInWatchlist(item.id, item.media_type)}
+                isWatching={isWatching ? isWatching(item.id, item.media_type) : false}
                 isWatched={isWatched(item.id, item.media_type)}
                 onToggleWatchlist={onToggleWatchlist}
+                onToggleWatching={onToggleWatching}
                 onSelect={onSelectItem}
                 onHoverBackdrop={onHoverBackdrop}
               />

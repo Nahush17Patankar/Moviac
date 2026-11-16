@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { motion } from 'motion/react';
-import { Bookmark, Check, Film, Tv } from 'lucide-react';
+import { Bookmark, Check, Film, Play, Tv } from 'lucide-react';
 import { getPosterUrl } from '../services/tmdb';
 import { TmdbMediaItem } from '../types/tmdb';
 
@@ -8,8 +8,10 @@ interface PosterCardProps {
   item: TmdbMediaItem;
   index?: number;
   inWatchlist: boolean;
+  isWatching?: boolean;
   isWatched?: boolean;
   onToggleWatchlist: (item: TmdbMediaItem) => void;
+  onToggleWatching?: (item: TmdbMediaItem) => void;
   onSelect: (item: TmdbMediaItem, layoutKey: string) => void;
   onHoverBackdrop?: (backdropPath: string | null) => void;
   layoutPrefix?: string;
@@ -20,8 +22,10 @@ export const PosterCard: React.FC<PosterCardProps> = ({
   item,
   index = 0,
   inWatchlist,
+  isWatching = false,
   isWatched = false,
   onToggleWatchlist,
+  onToggleWatching,
   onSelect,
   onHoverBackdrop,
   layoutPrefix = 'card',
@@ -146,27 +150,52 @@ export const PosterCard: React.FC<PosterCardProps> = ({
           {item.media_type === 'movie' ? 'Movie' : 'Series'}
         </span>
 
-        {/* Bookmark Action (Top-Right) */}
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            onToggleWatchlist(item);
-          }}
-          aria-label={
-            inWatchlist
-              ? `Remove ${item.title} from watchlist`
-              : `Add ${item.title} to watchlist`
-          }
-          title={inWatchlist ? 'In Watchlist' : 'Add to Watchlist'}
-          className={`absolute top-2 right-2 flex h-9 w-9 items-center justify-center rounded-xl border backdrop-blur-md transition-all duration-150 ${
-            inWatchlist
-              ? 'accent-gradient border-white/30 text-white shadow-md shadow-violet-500/30'
-              : 'border-white/15 bg-black/50 text-slate-200 hover:bg-black/75 hover:text-white'
-          }`}
-        >
-          <Bookmark className={`h-4 w-4 ${inWatchlist ? 'fill-current' : ''}`} />
-        </button>
+        {/* Top-Right Quick Actions: Watching + Bookmark */}
+        <div className="absolute top-2 right-2 flex items-center gap-1.5">
+          {onToggleWatching && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onToggleWatching(item);
+              }}
+              aria-label={
+                isWatching
+                  ? `Remove ${item.title} from currently watching`
+                  : `Add ${item.title} to currently watching`
+              }
+              title={isWatching ? 'Currently Watching' : 'Mark as Currently Watching'}
+              className={`flex h-9 w-9 items-center justify-center rounded-xl border backdrop-blur-md transition-all duration-150 ${
+                isWatching
+                  ? 'border-cyan-300/60 bg-cyan-500/80 text-white shadow-md shadow-cyan-500/30'
+                  : 'border-white/15 bg-black/50 text-slate-200 hover:bg-black/75 hover:text-white'
+              }`}
+            >
+              <Play className={`h-3.5 w-3.5 ${isWatching ? 'fill-current' : ''}`} />
+            </button>
+          )}
+
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggleWatchlist(item);
+            }}
+            aria-label={
+              inWatchlist
+                ? `Remove ${item.title} from watchlist`
+                : `Add ${item.title} to watchlist`
+            }
+            title={inWatchlist ? 'In Watchlist' : 'Add to Watchlist'}
+            className={`flex h-9 w-9 items-center justify-center rounded-xl border backdrop-blur-md transition-all duration-150 ${
+              inWatchlist
+                ? 'accent-gradient border-white/30 text-white shadow-md shadow-violet-500/30'
+                : 'border-white/15 bg-black/50 text-slate-200 hover:bg-black/75 hover:text-white'
+            }`}
+          >
+            <Bookmark className={`h-4 w-4 ${inWatchlist ? 'fill-current' : ''}`} />
+          </button>
+        </div>
 
         {/* Circular Rating Badge (Bottom-Left) */}
         {rating > 0 && (
@@ -198,7 +227,14 @@ export const PosterCard: React.FC<PosterCardProps> = ({
           </div>
         )}
 
-        {isWatched && (
+        {isWatching && (
+          <span className="pointer-events-none absolute right-2.5 bottom-2.5 inline-flex items-center gap-1 rounded-lg border border-cyan-400/40 bg-cyan-950/85 px-2 py-0.5 text-[10px] font-semibold text-cyan-200 backdrop-blur-md">
+            <Play className="h-2.5 w-2.5 fill-current" />
+            Watching
+          </span>
+        )}
+
+        {!isWatching && isWatched && (
           <span className="pointer-events-none absolute right-2.5 bottom-2.5 inline-flex items-center gap-1 rounded-lg border border-emerald-400/30 bg-emerald-950/80 px-2 py-0.5 text-[10px] font-semibold text-emerald-200 backdrop-blur-md">
             <Check className="h-3 w-3" />
             Watched

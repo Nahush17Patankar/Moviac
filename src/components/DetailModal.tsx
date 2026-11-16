@@ -28,8 +28,10 @@ interface DetailModalProps {
   onClose: () => void;
   onSelectSimilar: (item: TmdbMediaItem, layoutKey: string) => void;
   isInWatchlist: (id: number, type: MediaType) => boolean;
+  isWatching: (id: number, type: MediaType) => boolean;
   isWatched: (id: number, type: MediaType) => boolean;
   onToggleWatchlist: (item: TmdbMediaItem) => void;
+  onToggleWatching: (item: TmdbMediaItem) => void;
   onToggleWatched: (item: TmdbMediaItem) => void;
   getSeriesProgress: (id: number) => { season: number; episode: number } | undefined;
   onUpdateSeriesProgress: (id: number, season: number, episode: number) => void;
@@ -41,8 +43,10 @@ export const DetailModal: React.FC<DetailModalProps> = ({
   onClose,
   onSelectSimilar,
   isInWatchlist,
+  isWatching,
   isWatched,
   onToggleWatchlist,
+  onToggleWatching,
   onToggleWatched,
   getSeriesProgress,
   onUpdateSeriesProgress,
@@ -84,6 +88,7 @@ export const DetailModal: React.FC<DetailModalProps> = ({
   const backdropUrl = getBackdropUrl(activeData.backdrop_path, 'w1280');
 
   const inWl = isInWatchlist(activeData.id, activeData.media_type);
+  const watching = isWatching(activeData.id, activeData.media_type);
   const watched = isWatched(activeData.id, activeData.media_type);
   const progress =
     activeData.media_type === 'tv' ? getSeriesProgress(activeData.id) : undefined;
@@ -282,10 +287,23 @@ export const DetailModal: React.FC<DetailModalProps> = ({
 
                 <button
                   type="button"
+                  onClick={() => onToggleWatching(activeData)}
+                  className={`inline-flex items-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-semibold transition-all ${
+                    watching
+                      ? 'border-cyan-400/60 bg-cyan-500/25 text-cyan-100 shadow-md shadow-cyan-500/15'
+                      : 'border-white/15 bg-white/10 text-white hover:bg-white/15'
+                  }`}
+                >
+                  <Play className={`h-4 w-4 ${watching ? 'fill-current' : ''}`} />
+                  {watching ? 'Watching' : 'Currently Watching'}
+                </button>
+
+                <button
+                  type="button"
                   onClick={() => onToggleWatchlist(activeData)}
                   className={`inline-flex items-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-semibold transition-all ${
                     inWl
-                      ? 'border-cyan-400/50 bg-cyan-500/20 text-cyan-200'
+                      ? 'border-violet-400/50 bg-violet-500/20 text-violet-200'
                       : 'border-white/15 bg-white/10 text-white hover:bg-white/15'
                   }`}
                 >
@@ -486,7 +504,7 @@ export const DetailModal: React.FC<DetailModalProps> = ({
             <SeasonList
               tvId={detail.id}
               seasons={detail.seasons}
-              inWatchlist={inWl}
+              inWatchlist={inWl || watching}
               currentProgress={progress}
               onUpdateProgress={(s, e) => onUpdateSeriesProgress(detail.id, s, e)}
             />
@@ -507,8 +525,10 @@ export const DetailModal: React.FC<DetailModalProps> = ({
                     compact
                     layoutPrefix={`similar-${detail.id}`}
                     inWatchlist={isInWatchlist(rec.id, rec.media_type)}
+                    isWatching={isWatching(rec.id, rec.media_type)}
                     isWatched={isWatched(rec.id, rec.media_type)}
                     onToggleWatchlist={onToggleWatchlist}
+                    onToggleWatching={onToggleWatching}
                     onSelect={onSelectSimilar}
                   />
                 ))}

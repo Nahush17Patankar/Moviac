@@ -2,7 +2,11 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { GENRE_CHIPS } from '../services/tmdb';
 import { GenreChipId, MediaType, TmdbMediaItem, WatchlistEntry } from '../types/tmdb';
 
+export type WatchlistStatus = 'watching' | 'to-watch' | 'watched';
+
 const KEYS = {
+  watchingMovies: 'watching_movies',
+  watchingSeries: 'watching_series',
   watchlistMovies: 'watchlist_movies',
   watchlistSeries: 'watchlist_series',
   watchedMovies: 'watched_movies',
@@ -40,7 +44,7 @@ function readAffinity(): Record<string, number> {
   }
 }
 
-function toWatchlistEntry(item: TmdbMediaItem): WatchlistEntry {
+function toWatchlistEntry(item: TmdbMediaItem, existingProgress?: { season: number; episode: number }): WatchlistEntry {
   return {
     id: item.id,
     title: item.title,
@@ -51,11 +55,19 @@ function toWatchlistEntry(item: TmdbMediaItem): WatchlistEntry {
     year: item.year,
     genre_ids: item.genre_ids || [],
     addedAt: Date.now(),
-    ...(item.media_type === 'tv' ? { progress: { season: 1, episode: 1 } } : {}),
+    ...(item.media_type === 'tv'
+      ? { progress: existingProgress || { season: 1, episode: 1 } }
+      : {}),
   };
 }
 
 export function useWatchlist() {
+  const [watchingMovies, setWatchingMovies] = useState<WatchlistEntry[]>(() =>
+    readList(KEYS.watchingMovies)
+  );
+  const [watchingSeries, setWatchingSeries] = useState<WatchlistEntry[]>(() =>
+    readList(KEYS.watchingSeries)
+  );
   const [watchlistMovies, setWatchlistMovies] = useState<WatchlistEntry[]>(() =>
     readList(KEYS.watchlistMovies)
   );
@@ -71,6 +83,14 @@ export function useWatchlist() {
   const [genreAffinity, setGenreAffinity] = useState<Record<string, number>>(() =>
     readAffinity()
   );
+
+  useEffect(() => {
+    writeList(KEYS.watchingMovies, watchingMovies);
+  }, [watchingMovies]);
+
+  useEffect(() => {
+    writeList(KEYS.watchingSeries, watchingSeries);
+  }, [watchingSeries]);
 
   useEffect(() => {
     writeList(KEYS.watchlistMovies, watchlistMovies);
@@ -112,6 +132,14 @@ export function useWatchlist() {
     });
   }, []);
 
+  const isWatching = useCallback(
+    (id: number, mediaType: MediaType): boolean => {
+      const list = mediaType === 'movie' ? watchingMovies : watchingSeries;
+      return list.some((i) => i.id === id);
+    },
+    [watchingMovies, watchingSeries]
+  );
+
   const isInWatchlist = useCallback(
     (id: number, mediaType: MediaType): boolean => {
       const list = mediaType === 'movie' ? watchlistMovies : watchlistSeries;
@@ -128,22 +156,53 @@ export function useWatchlist() {
     [watchedMovies, watchedSeries]
   );
 
-  const toggleWatchlist = useCallback((item: TmdbMediaItem) => {
-    const entry = toWatchlistEntry(item);
-    if (item.media_type === 'movie') {
-      setWatchlistMovies((prev) => {
-        const exists = prev.some((i) => i.id === item.id);
-        if (exists) return prev.filter((i) => i.id !== item.id);
-        return [entry, ...prev];
-      });
-    } else {
-      setWatchlistSeries((prev) => {
-        const exists = prev.some((i) => i.id === item.id);
-        if (exists) return prev.filter((i) => i.id !== item.id);
-        return [entry, ...prev];
-      });
-    }
-  }, []);
+  const toggleWatching = useCallback(
+    (item: TmdbMediaItem) => {
+      if (item.media_type === 'movie') {
+        setWatchingMovies((prev) => {
+          const exists = prev.some((i) => i.id === item.id);
+          if (exists) return prev.filter((i) => i.id !== item.id);
+          setWatchlistMovies((wl) => wl.filter((i) => i.id !== item.id));
+          setWatchedMovies((wd) => wd.filter((i) => i.id !== item.id));
+          return [toWatchlistEntry(item), ...prev];
+        });
+      } else {
+        const existingProgress = watchlistSeries.find((i) => i.id === item.id)?.progress;
+        setWatchingSeries((prev) => {
+          const exists = prev.some((i) => i.id === item.id);
+          if (exists) return prev.filter((i) => i.id !== item.id);
+          setWatchlistSeries((wl) => wl.filter((i) => i.id !== item.id));
+          setWatchedSeries((wd) => wd.filter((i) => i.id !== item.id));
+          return [toWatchlistEntry(item, existingProgress), ...prev];
+        });
+      }
+    },
+    [watchlistSeries]
+  );
+
+  const toggleWatchlist = useCallback(
+    (item: TmdbMediaItem) => {
+      if (item.media_type === 'movie') {
+        setWatchlistMovies((prev) => {
+          const exists = prev.some((i) => i.id === item.id);
+          if (exists) return prev.filter((i) => i.id !== item.id);
+          setWatchingMovies((wt) => wt.filter((i) => i.id !== item.id));
+          setWatchedMovies((wd) => wd.filter((i) => i.id !== item.id));
+          return [toWatchlistEntry(item), ...prev];
+        });
+      } else {
+        const existingProgress = watchingSeries.find((i) => i.id === item.id)?.progress;
+        setWatchlistSeries((prev) => {
+          const exists = prev.some((i) => i.id === item.id);
+          if (exists) return prev.filter((i) => i.id !== item.id);
+          setWatchingSeries((wt) => wt.filter((i) => i.id !== item.id));
+          setWatchedSeries((wd) => wd.filter((i) => i.id !== item.id));
+          return [toWatchlistEntry(item, existingProgress), ...prev];
+        });
+      }
+    },
+    [watchingSeries]
+  );
 
   const toggleWatched = useCallback((item: TmdbMediaItem) => {
     const entry = toWatchlistEntry(item);
@@ -152,6 +211,7 @@ export function useWatchlist() {
         const exists = prev.some((i) => i.id === item.id);
         if (exists) return prev.filter((i) => i.id !== item.id);
         setWatchlistMovies((wl) => wl.filter((i) => i.id !== item.id));
+        setWatchingMovies((wt) => wt.filter((i) => i.id !== item.id));
         return [entry, ...prev];
       });
     } else {
@@ -159,21 +219,26 @@ export function useWatchlist() {
         const exists = prev.some((i) => i.id === item.id);
         if (exists) return prev.filter((i) => i.id !== item.id);
         setWatchlistSeries((wl) => wl.filter((i) => i.id !== item.id));
+        setWatchingSeries((wt) => wt.filter((i) => i.id !== item.id));
         return [entry, ...prev];
       });
     }
   }, []);
 
   const removeFromList = useCallback(
-    (id: number, mediaType: MediaType, status: 'to-watch' | 'watched') => {
+    (id: number, mediaType: MediaType, status: WatchlistStatus) => {
       if (mediaType === 'movie') {
-        if (status === 'to-watch') {
+        if (status === 'watching') {
+          setWatchingMovies((prev) => prev.filter((i) => i.id !== id));
+        } else if (status === 'to-watch') {
           setWatchlistMovies((prev) => prev.filter((i) => i.id !== id));
         } else {
           setWatchedMovies((prev) => prev.filter((i) => i.id !== id));
         }
       } else {
-        if (status === 'to-watch') {
+        if (status === 'watching') {
+          setWatchingSeries((prev) => prev.filter((i) => i.id !== id));
+        } else if (status === 'to-watch') {
           setWatchlistSeries((prev) => prev.filter((i) => i.id !== id));
         } else {
           setWatchedSeries((prev) => prev.filter((i) => i.id !== id));
@@ -184,63 +249,79 @@ export function useWatchlist() {
   );
 
   const moveBetweenLists = useCallback(
-    (id: number, mediaType: MediaType, toStatus: 'to-watch' | 'watched') => {
-      if (mediaType === 'movie') {
-        if (toStatus === 'watched') {
-          setWatchlistMovies((prev) => {
-            const target = prev.find((i) => i.id === id);
-            if (target) {
-              setWatchedMovies((w) => [{ ...target, addedAt: Date.now() }, ...w.filter((x) => x.id !== id)]);
+    (
+      id: number,
+      mediaType: MediaType,
+      fromStatus: WatchlistStatus,
+      toStatus: WatchlistStatus
+    ) => {
+      if (fromStatus === toStatus) return;
+
+      const setters =
+        mediaType === 'movie'
+          ? {
+              watching: setWatchingMovies,
+              'to-watch': setWatchlistMovies,
+              watched: setWatchedMovies,
             }
-            return prev.filter((i) => i.id !== id);
-          });
-        } else {
-          setWatchedMovies((prev) => {
-            const target = prev.find((i) => i.id === id);
-            if (target) {
-              setWatchlistMovies((w) => [{ ...target, addedAt: Date.now() }, ...w.filter((x) => x.id !== id)]);
-            }
-            return prev.filter((i) => i.id !== id);
-          });
-        }
-      } else {
-        if (toStatus === 'watched') {
-          setWatchlistSeries((prev) => {
-            const target = prev.find((i) => i.id === id);
-            if (target) {
-              setWatchedSeries((w) => [{ ...target, addedAt: Date.now() }, ...w.filter((x) => x.id !== id)]);
-            }
-            return prev.filter((i) => i.id !== id);
-          });
-        } else {
-          setWatchedSeries((prev) => {
-            const target = prev.find((i) => i.id === id);
-            if (target) {
-              setWatchlistSeries((w) => [{ ...target, addedAt: Date.now() }, ...w.filter((x) => x.id !== id)]);
-            }
-            return prev.filter((i) => i.id !== id);
-          });
-        }
-      }
+          : {
+              watching: setWatchingSeries,
+              'to-watch': setWatchlistSeries,
+              watched: setWatchedSeries,
+            };
+
+      const sourceList =
+        mediaType === 'movie'
+          ? { watching: watchingMovies, 'to-watch': watchlistMovies, watched: watchedMovies }[
+              fromStatus
+            ]
+          : { watching: watchingSeries, 'to-watch': watchlistSeries, watched: watchedSeries }[
+              fromStatus
+            ];
+
+      const target = sourceList.find((i) => i.id === id);
+      if (!target) return;
+
+      const updated: WatchlistEntry = {
+        ...target,
+        addedAt: Date.now(),
+        ...(mediaType === 'tv' && toStatus === 'watching' && !target.progress
+          ? { progress: { season: 1, episode: 1 } }
+          : {}),
+      };
+
+      setters[fromStatus]((prev) => prev.filter((i) => i.id !== id));
+      setters[toStatus]((prev) => [updated, ...prev.filter((i) => i.id !== id)]);
     },
-    []
+    [
+      watchingMovies,
+      watchlistMovies,
+      watchedMovies,
+      watchingSeries,
+      watchlistSeries,
+      watchedSeries,
+    ]
   );
 
   const updateSeriesProgress = useCallback((id: number, season: number, episode: number) => {
     const safeSeason = Math.max(1, season);
     const safeEpisode = Math.max(1, episode);
-    setWatchlistSeries((prev) =>
+    const apply = (prev: WatchlistEntry[]) =>
       prev.map((item) =>
         item.id === id ? { ...item, progress: { season: safeSeason, episode: safeEpisode } } : item
-      )
-    );
+      );
+    setWatchingSeries(apply);
+    setWatchlistSeries(apply);
   }, []);
 
   const getSeriesProgress = useCallback(
     (id: number): { season: number; episode: number } | undefined => {
-      return watchlistSeries.find((i) => i.id === id)?.progress;
+      return (
+        watchingSeries.find((i) => i.id === id)?.progress ||
+        watchlistSeries.find((i) => i.id === id)?.progress
+      );
     },
-    [watchlistSeries]
+    [watchingSeries, watchlistSeries]
   );
 
   const topGenreIds = useMemo(() => {
@@ -249,7 +330,14 @@ export function useWatchlist() {
       const gid = Number(gidStr);
       if (Number.isFinite(gid)) counts.set(gid, (counts.get(gid) || 0) + score);
     }
-    for (const item of [...watchlistMovies, ...watchlistSeries, ...watchedMovies, ...watchedSeries]) {
+    for (const item of [
+      ...watchingMovies,
+      ...watchingSeries,
+      ...watchlistMovies,
+      ...watchlistSeries,
+      ...watchedMovies,
+      ...watchedSeries,
+    ]) {
       for (const gid of item.genre_ids || []) {
         counts.set(gid, (counts.get(gid) || 0) + 2);
       }
@@ -258,21 +346,45 @@ export function useWatchlist() {
       .sort((a, b) => b[1] - a[1])
       .slice(0, 4)
       .map(([gid]) => gid);
-  }, [genreAffinity, watchlistMovies, watchlistSeries, watchedMovies, watchedSeries]);
+  }, [
+    genreAffinity,
+    watchingMovies,
+    watchingSeries,
+    watchlistMovies,
+    watchlistSeries,
+    watchedMovies,
+    watchedSeries,
+  ]);
 
   const allWatchlistSeeds = useMemo(
     () =>
-      [...watchlistMovies, ...watchlistSeries, ...watchedMovies, ...watchedSeries].map((item) => ({
+      [
+        ...watchingMovies,
+        ...watchingSeries,
+        ...watchlistMovies,
+        ...watchlistSeries,
+        ...watchedMovies,
+        ...watchedSeries,
+      ].map((item) => ({
         id: item.id,
         media_type: item.media_type,
       })),
-    [watchlistMovies, watchlistSeries, watchedMovies, watchedSeries]
+    [
+      watchingMovies,
+      watchingSeries,
+      watchlistMovies,
+      watchlistSeries,
+      watchedMovies,
+      watchedSeries,
+    ]
   );
 
   const exportWatchlistsJson = useCallback(() => {
     const payload = {
       exportedAt: new Date().toISOString(),
       app: 'Moviac',
+      watching_movies: watchingMovies,
+      watching_series: watchingSeries,
       watchlist_movies: watchlistMovies,
       watchlist_series: watchlistSeries,
       watched_movies: watchedMovies,
@@ -282,10 +394,17 @@ export function useWatchlist() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `cinedeck-watchlists-${new Date().toISOString().slice(0, 10)}.json`;
+    a.download = `moviac-watchlists-${new Date().toISOString().slice(0, 10)}.json`;
     a.click();
     URL.revokeObjectURL(url);
-  }, [watchlistMovies, watchlistSeries, watchedMovies, watchedSeries]);
+  }, [
+    watchingMovies,
+    watchingSeries,
+    watchlistMovies,
+    watchlistSeries,
+    watchedMovies,
+    watchedSeries,
+  ]);
 
   const importWatchlistsJson = useCallback((jsonText: string): { ok: boolean; message: string } => {
     try {
@@ -311,6 +430,8 @@ export function useWatchlist() {
         return Array.from(map.values()).sort((a, b) => b.addedAt - a.addedAt);
       };
 
+      setWatchingMovies((prev) => mergeUnique(prev, data.watching_movies, 'movie'));
+      setWatchingSeries((prev) => mergeUnique(prev, data.watching_series, 'tv'));
       setWatchlistMovies((prev) => mergeUnique(prev, data.watchlist_movies, 'movie'));
       setWatchlistSeries((prev) => mergeUnique(prev, data.watchlist_series, 'tv'));
       setWatchedMovies((prev) => mergeUnique(prev, data.watched_movies, 'movie'));
@@ -323,12 +444,16 @@ export function useWatchlist() {
   }, []);
 
   return {
+    watchingMovies,
+    watchingSeries,
     watchlistMovies,
     watchlistSeries,
     watchedMovies,
     watchedSeries,
+    isWatching,
     isInWatchlist,
     isWatched,
+    toggleWatching,
     toggleWatchlist,
     toggleWatched,
     removeFromList,

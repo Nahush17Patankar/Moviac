@@ -166,17 +166,47 @@ export default function App() {
 
   const totalWatchlistCount = useMemo(
     () =>
+      watchlist.watchingMovies.length +
+      watchlist.watchingSeries.length +
       watchlist.watchlistMovies.length +
       watchlist.watchlistSeries.length +
       watchlist.watchedMovies.length +
       watchlist.watchedSeries.length,
     [
+      watchlist.watchingMovies.length,
+      watchlist.watchingSeries.length,
       watchlist.watchlistMovies.length,
       watchlist.watchlistSeries.length,
       watchlist.watchedMovies.length,
       watchlist.watchedSeries.length,
     ]
   );
+
+  const currentlyWatchingItems = useMemo<TmdbMediaItem[]>(() => {
+    const entries =
+      contentType === 'movie'
+        ? watchlist.watchingMovies
+        : contentType === 'tv'
+        ? watchlist.watchingSeries
+        : [...watchlist.watchingMovies, ...watchlist.watchingSeries].sort(
+            (a, b) => b.addedAt - a.addedAt
+          );
+    return entries.map((entry) => ({
+      id: entry.id,
+      media_type: entry.media_type,
+      title: entry.title,
+      overview: '',
+      poster_path: entry.poster_path,
+      backdrop_path: entry.backdrop_path,
+      release_date: entry.year ? `${entry.year}-01-01` : '',
+      year: entry.year,
+      vote_average: entry.vote_average,
+      vote_count: 0,
+      popularity: 0,
+      genre_ids: entry.genre_ids || [],
+      original_language: 'en',
+    }));
+  }, [contentType, watchlist.watchingMovies, watchlist.watchingSeries]);
 
   const backdropUrl = getBackdropUrl(activeBackdropPath, 'w1280');
 
@@ -267,12 +297,16 @@ export default function App() {
               onClose={() => setSearchOpen(false)}
               onSelectItem={handleSelectItem}
               isInWatchlist={watchlist.isInWatchlist}
+              isWatching={watchlist.isWatching}
               onToggleWatchlist={watchlist.toggleWatchlist}
+              onToggleWatching={watchlist.toggleWatching}
               onHoverBackdrop={setActiveBackdropPath}
             />
           ) : activeView === 'lists' ? (
             <div className="mx-auto max-w-7xl px-4 pt-6 sm:px-6 lg:px-8">
               <MyLists
+                watchingMovies={watchlist.watchingMovies}
+                watchingSeries={watchlist.watchingSeries}
                 watchlistMovies={watchlist.watchlistMovies}
                 watchlistSeries={watchlist.watchlistSeries}
                 watchedMovies={watchlist.watchedMovies}
@@ -352,14 +386,32 @@ export default function App() {
                   hasMore={media.hasMoreDiscover}
                   onLoadMore={media.loadMoreDiscover}
                   isInWatchlist={watchlist.isInWatchlist}
+                  isWatching={watchlist.isWatching}
                   isWatched={watchlist.isWatched}
                   onToggleWatchlist={watchlist.toggleWatchlist}
+                  onToggleWatching={watchlist.toggleWatching}
                   onSelectItem={handleSelectItem}
                   onHoverBackdrop={setActiveBackdropPath}
                   gridId="discover-grid"
                 />
               ) : (
                 <div className="space-y-10">
+                  {currentlyWatchingItems.length > 0 && (
+                    <Row
+                      rowId="currently-watching"
+                      title="Currently Watching"
+                      subtitle="Jump back into movies and series you are watching right now"
+                      items={currentlyWatchingItems}
+                      isInWatchlist={watchlist.isInWatchlist}
+                      isWatching={watchlist.isWatching}
+                      isWatched={watchlist.isWatched}
+                      onToggleWatchlist={watchlist.toggleWatchlist}
+                      onToggleWatching={watchlist.toggleWatching}
+                      onSelectItem={handleSelectItem}
+                      onHoverBackdrop={setActiveBackdropPath}
+                    />
+                  )}
+
                   <Row
                     rowId="trending-day"
                     title="Trending Today"
@@ -367,8 +419,10 @@ export default function App() {
                     items={media.feed.trendingToday}
                     loading={media.loadingFeed}
                     isInWatchlist={watchlist.isInWatchlist}
+                    isWatching={watchlist.isWatching}
                     isWatched={watchlist.isWatched}
                     onToggleWatchlist={watchlist.toggleWatchlist}
+                    onToggleWatching={watchlist.toggleWatching}
                     onSelectItem={handleSelectItem}
                     onHoverBackdrop={setActiveBackdropPath}
                   />
@@ -384,8 +438,10 @@ export default function App() {
                     items={media.feed.recommended}
                     loading={media.loadingFeed}
                     isInWatchlist={watchlist.isInWatchlist}
+                    isWatching={watchlist.isWatching}
                     isWatched={watchlist.isWatched}
                     onToggleWatchlist={watchlist.toggleWatchlist}
+                    onToggleWatching={watchlist.toggleWatching}
                     onSelectItem={handleSelectItem}
                     onHoverBackdrop={setActiveBackdropPath}
                   />
@@ -397,8 +453,10 @@ export default function App() {
                     items={media.feed.trendingWeek}
                     loading={media.loadingFeed}
                     isInWatchlist={watchlist.isInWatchlist}
+                    isWatching={watchlist.isWatching}
                     isWatched={watchlist.isWatched}
                     onToggleWatchlist={watchlist.toggleWatchlist}
+                    onToggleWatching={watchlist.toggleWatching}
                     onSelectItem={handleSelectItem}
                     onHoverBackdrop={setActiveBackdropPath}
                   />
@@ -410,8 +468,10 @@ export default function App() {
                     items={media.feed.newReleases}
                     loading={media.loadingFeed}
                     isInWatchlist={watchlist.isInWatchlist}
+                    isWatching={watchlist.isWatching}
                     isWatched={watchlist.isWatched}
                     onToggleWatchlist={watchlist.toggleWatchlist}
+                    onToggleWatching={watchlist.toggleWatching}
                     onSelectItem={handleSelectItem}
                     onHoverBackdrop={setActiveBackdropPath}
                   />
@@ -423,8 +483,10 @@ export default function App() {
                     items={media.feed.topRated}
                     loading={media.loadingFeed}
                     isInWatchlist={watchlist.isInWatchlist}
+                    isWatching={watchlist.isWatching}
                     isWatched={watchlist.isWatched}
                     onToggleWatchlist={watchlist.toggleWatchlist}
+                    onToggleWatching={watchlist.toggleWatching}
                     onSelectItem={handleSelectItem}
                     onHoverBackdrop={setActiveBackdropPath}
                   />
@@ -437,8 +499,10 @@ export default function App() {
                       items={media.feed.classics}
                       loading={media.loadingFeed}
                       isInWatchlist={watchlist.isInWatchlist}
+                      isWatching={watchlist.isWatching}
                       isWatched={watchlist.isWatched}
                       onToggleWatchlist={watchlist.toggleWatchlist}
+                      onToggleWatching={watchlist.toggleWatching}
                       onSelectItem={handleSelectItem}
                       onHoverBackdrop={setActiveBackdropPath}
                     />
@@ -479,8 +543,10 @@ export default function App() {
                 setSelectedTitle({ item: simItem, layoutKey: simKey });
               }}
               isInWatchlist={watchlist.isInWatchlist}
+              isWatching={watchlist.isWatching}
               isWatched={watchlist.isWatched}
               onToggleWatchlist={watchlist.toggleWatchlist}
+              onToggleWatching={watchlist.toggleWatching}
               onToggleWatched={watchlist.toggleWatched}
               getSeriesProgress={watchlist.getSeriesProgress}
               onUpdateSeriesProgress={watchlist.updateSeriesProgress}

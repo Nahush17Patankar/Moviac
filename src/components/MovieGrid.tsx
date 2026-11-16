@@ -12,8 +12,10 @@ interface MovieGridProps {
   hasMore?: boolean;
   onLoadMore?: () => void;
   isInWatchlist: (id: number, type: MediaType) => boolean;
+  isWatching?: (id: number, type: MediaType) => boolean;
   isWatched: (id: number, type: MediaType) => boolean;
   onToggleWatchlist: (item: TmdbMediaItem) => void;
+  onToggleWatching?: (item: TmdbMediaItem) => void;
   onSelectItem: (item: TmdbMediaItem, layoutKey: string) => void;
   onHoverBackdrop?: (path: string | null) => void;
   gridId?: string;
@@ -28,8 +30,10 @@ export const MovieGrid: React.FC<MovieGridProps> = ({
   hasMore = false,
   onLoadMore,
   isInWatchlist,
+  isWatching,
   isWatched,
   onToggleWatchlist,
+  onToggleWatching,
   onSelectItem,
   onHoverBackdrop,
   gridId = 'grid',
@@ -68,8 +72,10 @@ export const MovieGrid: React.FC<MovieGridProps> = ({
               index={idx}
               layoutPrefix={gridId}
               inWatchlist={isInWatchlist(item.id, item.media_type)}
+              isWatching={isWatching ? isWatching(item.id, item.media_type) : false}
               isWatched={isWatched(item.id, item.media_type)}
               onToggleWatchlist={onToggleWatchlist}
+              onToggleWatching={onToggleWatching}
               onSelect={onSelectItem}
               onHoverBackdrop={onHoverBackdrop}
             />

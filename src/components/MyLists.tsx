@@ -7,6 +7,7 @@ import {
   Download,
   Film,
   Minus,
+  Play,
   Plus,
   RotateCcw,
   Star,
@@ -14,6 +15,7 @@ import {
   Tv,
   Upload,
 } from 'lucide-react';
+import { WatchlistStatus } from '../hooks/useWatchlist';
 import { getPosterUrl } from '../services/tmdb';
 import { MediaType, TmdbMediaItem, WatchlistEntry } from '../types/tmdb';
 
@@ -21,13 +23,20 @@ type ListTab = 'movie' | 'tv';
 type SortOption = 'recent' | 'rating' | 'year';
 
 interface MyListsProps {
+  watchingMovies: WatchlistEntry[];
+  watchingSeries: WatchlistEntry[];
   watchlistMovies: WatchlistEntry[];
   watchlistSeries: WatchlistEntry[];
   watchedMovies: WatchlistEntry[];
   watchedSeries: WatchlistEntry[];
   onSelectEntry: (item: TmdbMediaItem, layoutKey: string) => void;
-  onRemove: (id: number, mediaType: MediaType, status: 'to-watch' | 'watched') => void;
-  onMoveStatus: (id: number, mediaType: MediaType, toStatus: 'to-watch' | 'watched') => void;
+  onRemove: (id: number, mediaType: MediaType, status: WatchlistStatus) => void;
+  onMoveStatus: (
+    id: number,
+    mediaType: MediaType,
+    fromStatus: WatchlistStatus,
+    toStatus: WatchlistStatus
+  ) => void;
   onUpdateSeriesProgress: (id: number, season: number, episode: number) => void;
   onExportJson: () => void;
   onImportJson: (jsonText: string) => { ok: boolean; message: string };
@@ -52,6 +61,8 @@ function entryToMediaItem(entry: WatchlistEntry): TmdbMediaItem {
 }
 
 export const MyLists: React.FC<MyListsProps> = ({
+  watchingMovies,
+  watchingSeries,
   watchlistMovies,
   watchlistSeries,
   watchedMovies,
@@ -68,8 +79,8 @@ export const MyLists: React.FC<MyListsProps> = ({
   const [importNotice, setImportNotice] = useState<{ ok: boolean; text: string } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const movieTotal = watchlistMovies.length + watchedMovies.length;
-  const seriesTotal = watchlistSeries.length + watchedSeries.length;
+  const movieTotal = watchingMovies.length + watchlistMovies.length + watchedMovies.length;
+  const seriesTotal = watchingSeries.length + watchlistSeries.length + watchedSeries.length;
 
   const sortEntries = (entries: WatchlistEntry[]) => {
     const copy = [...entries];
@@ -81,6 +92,11 @@ export const MyLists: React.FC<MyListsProps> = ({
     }
     return copy.sort((a, b) => b.addedAt - a.addedAt);
   };
+
+  const watchingList = useMemo(
+    () => sortEntries(activeTab === 'movie' ? watchingMovies : watchingSeries),
+    [activeTab, watchingMovies, watchingSeries, sortBy]
+  );
 
   const toWatchList = useMemo(
     () => sortEntries(activeTab === 'movie' ? watchlistMovies : watchlistSeries),
@@ -106,7 +122,7 @@ export const MyLists: React.FC<MyListsProps> = ({
     e.target.value = '';
   };
 
-  const renderCard = (entry: WatchlistEntry, status: 'to-watch' | 'watched') => {
+  const renderCard = (entry: WatchlistEntry, status: WatchlistStatus) => {
     const posterUrl = getPosterUrl(entry.poster_path, 'w500');
     const layoutKey = `list-${status}-${entry.media_type}-${entry.id}`;
     const prog = entry.progress || { season: 1, episode: 1 };
@@ -165,7 +181,7 @@ export const MyLists: React.FC<MyListsProps> = ({
               )}
             </div>
 
-            {entry.media_type === 'tv' && status === 'to-watch' && (
+            {entry.media_type === 'tv' && (status === 'watching' || status === 'to-watch') && (
               <div className="mt-2.5 space-y-1.5 rounded-xl border border-white/10 bg-black/30 p-2">
                 <p className="text-[11px] font-medium text-cyan-200">
                   Currently watching: Season {prog.season}, Episode {prog.episode}
@@ -218,30 +234,47 @@ export const MyLists: React.FC<MyListsProps> = ({
           </div>
         </div>
 
-        <div className="flex items-center justify-between gap-2 border-t border-white/10 pt-2.5">
-          <button
-            type="button"
-            onClick={() =>
-              onMoveStatus(
-                entry.id,
-                entry.media_type,
-                status === 'to-watch' ? 'watched' : 'to-watch'
-              )
-            }
-            className="inline-flex items-center gap-1.5 rounded-lg bg-white/10 px-2.5 py-1.5 text-xs font-medium text-slate-200 hover:bg-white/20 hover:text-white"
-          >
-            {status === 'to-watch' ? (
-              <>
+        <div className="flex flex-wrap items-center justify-between gap-2 border-t border-white/10 pt-2.5">
+          <div className="flex flex-wrap items-center gap-1.5">
+            {status !== 'watching' && (
+              <button
+                type="button"
+                onClick={() =>
+                  onMoveStatus(entry.id, entry.media_type, status, 'watching')
+                }
+                className="inline-flex items-center gap-1.5 rounded-lg border border-cyan-400/30 bg-cyan-500/15 px-2.5 py-1.5 text-xs font-medium text-cyan-200 hover:bg-cyan-500/25"
+              >
+                <Play className="h-3 w-3 fill-current" />
+                {status === 'watched' ? 'Watch Again' : 'Start Watching'}
+              </button>
+            )}
+
+            {status !== 'watched' && (
+              <button
+                type="button"
+                onClick={() =>
+                  onMoveStatus(entry.id, entry.media_type, status, 'watched')
+                }
+                className="inline-flex items-center gap-1.5 rounded-lg bg-white/10 px-2.5 py-1.5 text-xs font-medium text-slate-200 hover:bg-white/20 hover:text-white"
+              >
                 <Check className="h-3.5 w-3.5 text-emerald-300" />
                 Mark Watched
-              </>
-            ) : (
-              <>
-                <RotateCcw className="h-3.5 w-3.5 text-cyan-300" />
-                Move to To Watch
-              </>
+              </button>
             )}
-          </button>
+
+            {status !== 'to-watch' && (
+              <button
+                type="button"
+                onClick={() =>
+                  onMoveStatus(entry.id, entry.media_type, status, 'to-watch')
+                }
+                className="inline-flex items-center gap-1.5 rounded-lg bg-white/10 px-2.5 py-1.5 text-xs font-medium text-slate-200 hover:bg-white/20 hover:text-white"
+              >
+                <RotateCcw className="h-3.5 w-3.5 text-violet-300" />
+                To Watch
+              </button>
+            )}
+          </div>
 
           <button
             type="button"
@@ -362,14 +395,40 @@ export const MyLists: React.FC<MyListsProps> = ({
         </div>
       </div>
 
+      {/* Currently Watching Section */}
+      <section className="space-y-4">
+        <div className="flex items-center gap-2">
+          <Play className="h-4 w-4 fill-cyan-300 text-cyan-300" />
+          <h2 className="font-display text-xl font-bold text-white">
+            Currently Watching ({watchingList.length})
+          </h2>
+        </div>
+
+        {watchingList.length === 0 ? (
+          <div className="glass-surface flex flex-col items-center justify-center rounded-3xl px-6 py-10 text-center">
+            <Play className="mb-2.5 h-6 w-6 text-cyan-300" />
+            <p className="text-sm font-medium text-slate-200">
+              You aren&apos;t watching any {activeTab === 'movie' ? 'movies' : 'web series'} right now.
+            </p>
+            <p className="mt-1 text-xs text-slate-400">
+              Tap the play icon on any poster card or click &ldquo;Currently Watching&rdquo; in a title&apos;s details.
+            </p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+            {watchingList.map((entry) => renderCard(entry, 'watching'))}
+          </div>
+        )}
+      </section>
+
       {/* To Watch Section */}
       <section className="space-y-4">
         <h2 className="font-display text-xl font-bold text-white">
           To Watch ({toWatchList.length})
         </h2>
         {toWatchList.length === 0 ? (
-          <div className="glass-surface flex flex-col items-center justify-center rounded-3xl px-6 py-12 text-center">
-            <Bookmark className="mb-3 h-7 w-7 text-slate-400" />
+          <div className="glass-surface flex flex-col items-center justify-center rounded-3xl px-6 py-10 text-center">
+            <Bookmark className="mb-2.5 h-6 w-6 text-slate-400" />
             <p className="text-sm font-medium text-slate-200">
               Your {activeTab === 'movie' ? 'Movie' : 'Series'} To Watch list is empty.
             </p>
